@@ -120,8 +120,8 @@ object AutoSchema {
           None
         }
       }.toList.sortBy(_._1)
-
-      val properties = JsObject(propertiesList)
+      
+      val properties = JsObject(propertiesList.toMap)
 
       // Return the value and add it to the cache (since we're using getOrElseUpdate
       Json.obj("title" -> title, "type" -> "object", "properties" -> properties)
