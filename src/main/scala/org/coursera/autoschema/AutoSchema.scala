@@ -55,23 +55,26 @@ object AutoSchema {
   private[this] val classSchemaCache = collection.concurrent.TrieMap[String, JsObject]()
 
   private[this] val isHideAnnotation = (annotation: ru.Annotation) =>
-    annotation.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Term.Hide"
+    annotation.tree.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Term.Hide"
 
   private[this] val isFormatAnnotation = (annotation: ru.Annotation) =>
-    annotation.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.FormatAs"
+    annotation.tree.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.FormatAs"
 
   private[this] val isExposeAnnotation = (annotation: ru.Annotation) =>
-    annotation.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.ExposeAs"
+    annotation.tree.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.ExposeAs"
 
   private[this] val isTermExposeAnnotation = (annotation: ru.Annotation) =>
-    annotation.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Term.ExposeAs"
+    annotation.tree.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Term.ExposeAs"
 
   private[this] val isDescriptionAnnotation = (annotaion: ru.Annotation) =>
-    annotaion.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Description"
+    annotaion.tree.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Description"
+
+  private[this] val isTitleAnnotation = (annotaion: ru.Annotation) =>
+    annotaion.tree.tpe.typeSymbol.fullName == "org.coursera.autoschema.annotations.Title"
 
   // Generates JSON schema based on a FormatAs annotation
   private[this] def formatAnnotationJson(annotation: ru.Annotation) = {
-    annotation.scalaArgs match {
+    annotation.tree.children.tail match {
       case typ :: Nil =>
         Json.obj("type" -> typ.toString.tail.init)
       case typ :: format :: Nil =>
@@ -82,9 +85,17 @@ object AutoSchema {
   }
 
   private [this] def descriptionAnnotationJson(annotation: ru.Annotation) = {
-    annotation.scalaArgs match {
+    annotation.tree.children.tail match {
       case description :: Nil =>
         Some("description" -> JsString(description.toString.tail.init))
+      case _ => None
+    }
+  }
+
+  private [this] def titleAnnotationJson(annotation: ru.Annotation) = {
+    annotation.tree.children.tail match {
+      case custom :: Nil =>
+        Some("title" -> JsString(custom.toString.tail.init))
       case _ => None
     }
   }
@@ -112,7 +123,16 @@ object AutoSchema {
               case None => termFormat
             }
 
-            Some(term.name.decoded.trim -> termFormatWithDescription)
+            //Some(term.name.decoded.trim -> termFormatWithDescription)
+
+            val title = term.annotations.find(isTitleAnnotation).flatMap(titleAnnotationJson)
+            val termFormatWithTitle = title match  {
+              case Some(value) => termFormatWithDescription + value
+              case None => termFormatWithDescription
+            }
+
+            Some(term.name.decoded.trim -> termFormatWithTitle)
+
           } else {
             None
           }
@@ -140,6 +160,14 @@ object AutoSchema {
     }
   }
 
+  private[this] def addTitle[T](tpe: ru.Type, obj: JsObject): JsObject = {
+    val title = tpe.typeSymbol.annotations.find(isTitleAnnotation).flatMap(titleAnnotationJson)
+    title match {
+      case Some(ttl) => obj + ttl
+      case None => obj
+    }
+  }
+
   private[this] def createSchema(tpe: ru.Type, previousTypes: Set[String]): JsObject = {
     val typeName = tpe.typeSymbol.fullName
 
@@ -158,11 +186,13 @@ object AutoSchema {
         "enum" -> optionsArr
       )
       addDescription(tpe, enumJson)
+      addTitle(tpe, enumJson)
 
     } else if (typeName == "scala.Option") {
       // Option[T] becomes the schema of T with required set to false
       val jsonOption = Json.obj("required" -> false) ++ createSchema(tpe.asInstanceOf[ru.TypeRefApi].args.head, previousTypes)
       addDescription(tpe, jsonOption)
+      addTitle(tpe, jsonOption)
     } else if (tpe.baseClasses.exists(s => s.fullName == "scala.collection.Traversable" ||
                                            s.fullName == "scala.Array" ||
                                            s.fullName == "scala.Seq" ||
@@ -171,6 +201,7 @@ object AutoSchema {
       // (Traversable)[T] becomes a schema with items set to the schema of T
       val jsonSeq = Json.obj("type" -> "array", "items" -> createSchema(tpe.asInstanceOf[ru.TypeRefApi].args.head, previousTypes))
       addDescription(tpe, jsonSeq)
+      addTitle(tpe, jsonSeq)
     } else {
       val jsonObj = tpe.typeSymbol.annotations.find(isFormatAnnotation)
         .map(formatAnnotationJson)
@@ -193,6 +224,7 @@ object AutoSchema {
         }
       }
       addDescription(tpe, jsonObj)
+      addTitle(tpe, jsonObj)
     }
   }
 

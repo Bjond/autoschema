@@ -44,6 +44,20 @@ class FormatAs(tpe: String, format: String) extends StaticAnnotation {
 }
 
 /**
+  * Lets you manually set a title to override the default
+  * @example
+ * {{{
+  *      @Title("blah")
+  *      case class MyDateType
+  * }}}
+  *
+  * @param title
+  * The title of the object.
+  */
+class Title(title: String) extends StaticAnnotation
+
+
+/**
  * Lets you set the schema for one type to be the schema of another type
  * @example
  * {{{
@@ -65,7 +79,7 @@ class ExposeAs[T] extends StaticAnnotation
  *      case class MyDateType
  * }}}
  *
- * @param desription
+ * @param description
  * Optional: A description of the annotated field
  */
 class Description(description: String) extends StaticAnnotation
@@ -116,4 +130,14 @@ object Term {
    */
   @field
   type Description = annotations.Description@field
+
+  /**
+    * Same as [[annotations.Title]] but for fields
+    * @example
+   * {{{
+    *      case class MyType(@Term.Title("some id") id: MyTypeId)
+    * }}}
+    */
+  @field
+  type Title = annotations.Title@field
 }

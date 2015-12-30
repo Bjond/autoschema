@@ -22,6 +22,7 @@ import org.coursera.autoschema.annotations.Description
 import org.coursera.autoschema.annotations.ExposeAs
 import org.coursera.autoschema.annotations.FormatAs
 import org.coursera.autoschema.annotations.Term
+import org.coursera.autoschema.annotations.Title
 
 import org.junit.Test
 import org.scalatest.junit.AssertionsForJUnit
@@ -56,6 +57,9 @@ case class MutuallyRecursiveTypeTwo(param1: MutuallyRecursiveTypeOne)
 
 @Description("Type description")
 case class TypeWithDescription(@Term.Description("Parameter description") param1: String)
+
+@Title("Type title")
+case class TypeWithTitle(@Term.Title("Parameter title") param1: String)
 
 class AutoSchemaTest extends AssertionsForJUnit {
   @Test
@@ -218,5 +222,17 @@ class AutoSchemaTest extends AssertionsForJUnit {
             "type" -> "string",
             "description" -> "Parameter description")),
         "description" -> "Type description"))
+  }
+
+  @Test
+  def typeWithTitle: Unit = {
+    assert(createSchema[TypeWithTitle] ===
+      Json.obj(
+        "type" -> "object",
+        "properties" -> Json.obj(
+          "param1" -> Json.obj(
+            "type" -> "string",
+            "title" -> "Parameter title")),
+        "title" -> "Type title"))
   }
 }
